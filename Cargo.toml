@@ -1,0 +1,9 @@
+[package]
+name = "end"
+version = "0.0.0"
+authors = ["M Farkas-Dyck <strake888@gmail.com>"]
+description = "endian conversion"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "endian"
