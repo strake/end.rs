@@ -21,6 +21,8 @@ macro_rules! from_uns {
 }
 
 pub trait Endian: private::Sealed {
+    const is_big: bool = !Self::is_lil;
+    const is_lil: bool = !Self::is_big;
     fn read_u(&[u8]) -> u64;
     #[inline]
     fn read_i(bs: &[u8]) -> i64 { Self::read_u(bs) as _ }
@@ -67,6 +69,8 @@ impl private::Sealed for Big {}
 impl private::Sealed for Lil {}
 
 impl Endian for Big {
+    const is_big: bool = true;
+
     #[inline]
     fn read_u(bs: &[u8]) -> u64 {
         assert!(8 >= bs.len());
@@ -89,6 +93,8 @@ impl Endian for Big {
 }
 
 impl Endian for Lil {
+    const is_lil: bool = true;
+
     #[inline]
     fn read_u(bs: &[u8]) -> u64 {
         assert!(8 >= bs.len());
