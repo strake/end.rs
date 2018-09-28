@@ -149,6 +149,57 @@ macro_rules! do_impls {
 do_impls!(usize, u8, u16, u32, u64, u128,
           isize, i8, i16, i32, i64, i128);
 
+macro_rules! impl_op {
+    ($op:ident, $f:ident) => {
+        impl<A: $op<B>, B, E: Endian> $op<B> for End<A, E>
+          where A: From<End<A, E>>, End<<A as $op<B>>::Output, E>: From<<A as $op<B>>::Output> {
+            type Output = End<<A as $op<B>>::Output, E>;
+            #[inline]
+            fn $f(self, other: B) -> Self::Output { A::$f(self.into(), other).into() }
+        }
+    }
+}
+
+macro_rules! impl_op_assign {
+    ($op:ident, $f:ident) => {
+        impl<A: $op<B>, B, E: Endian> $op<B> for End<A, E> {
+            #[inline]
+            fn $f(&mut self, operand: B) { A::$f(&mut self.0, operand) }
+        }
+    }
+}
+
+macro_rules! impl_op_unary {
+    ($op:ident, $f:ident) => {
+        impl<A: $op, E: Endian> $op for End<A, E>
+          where A: From<End<A, E>>, End<<A as $op>::Output, E>: From<<A as $op>::Output> {
+            type Output = End<<A as $op>::Output, E>;
+            #[inline]
+            fn $f(self) -> Self::Output { A::$f(self.into()).into() }
+        }
+    }
+}
+
+use core::ops::*;
+
+impl_op!(BitAnd, bitand);
+impl_op!(BitOr,  bitor);
+impl_op!(BitXor, bitxor);
+impl_op!(Add, add);
+impl_op!(Sub, sub);
+impl_op!(Mul, mul);
+impl_op!(Div, div);
+impl_op!(Rem, rem);
+impl_op!(Shl, shl);
+impl_op!(Shr, shr);
+
+impl_op_unary!(Neg, neg);
+impl_op_unary!(Not, not);
+
+impl_op_assign!(BitAndAssign, bitand_assign);
+impl_op_assign!(BitOrAssign,  bitor_assign);
+impl_op_assign!(BitXorAssign, bitxor_assign);
+
 impl<A: Copy + PartialOrd, E: Copy + Endian> PartialOrd for End<A, E> where Self: Into<A> {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
