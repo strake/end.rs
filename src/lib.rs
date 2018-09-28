@@ -1,6 +1,6 @@
 #![no_std]
 
-use core::mem::transmute as xmut;
+use core::{cmp::Ordering, marker::PhantomData, mem::transmute as xmut};
 
 macro_rules! to_uns {
     ($n:expr, $bs:expr, $ns:expr) => ({
@@ -113,5 +113,52 @@ impl Endian for Lil {
             *bp = n as _;
             n >>= 8;
         }
+    }
+}
+
+#[derive(Clone, Copy, Hash)]
+pub struct End<A, E: Endian>(A, PhantomData<E>);
+
+impl<A: PartialEq, E: Endian> PartialEq for End<A, E> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool { self.0 == other.0 }
+}
+impl<A: Eq, E: Endian> Eq for End<A, E> {}
+
+macro_rules! do_impls {
+    ($t:ty) => {
+        impl<E: Endian> From<$t> for End<$t, E> {
+            #[inline]
+            fn from(a: $t) -> Self {
+                End(if cfg!(target_endian = "little") == E::is_lil { a } else { a.swap_bytes() },
+                    PhantomData)
+            }
+        }
+
+        impl<E: Endian> From<End<$t, E>> for $t {
+            #[inline]
+            fn from(End(a, _): End<$t, E>) -> Self {
+                if cfg!(target_endian = "little") == E::is_lil { a } else { a.swap_bytes() }
+            }
+        }
+    };
+
+    ($t:ty, $($ts:ty),*) => { do_impls!($t); $(do_impls!($ts);)* }
+}
+
+do_impls!(usize, u8, u16, u32, u64, u128,
+          isize, i8, i16, i32, i64, i128);
+
+impl<A: Copy + PartialOrd, E: Copy + Endian> PartialOrd for End<A, E> where Self: Into<A> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        A::partial_cmp(&(*self).into(), &(*other).into())
+    }
+}
+
+impl<A: Copy + Ord, E: Copy + Endian> Ord for End<A, E> where Self: Into<A> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        A::cmp(&(*self).into(), &(*other).into())
     }
 }
