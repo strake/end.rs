@@ -1,9 +1,9 @@
 #![no_std]
 
-use core::{cmp::Ordering, marker::PhantomData, mem::transmute as xmut};
+use core::{cmp::Ordering, marker::PhantomData};
 
-macro_rules! to_uns {
-    ($n:expr, $bs:expr, $ns:expr) => ({
+macro_rules! to_ns {
+    ($n:expr, $bs:expr, $ns:expr, $f:expr) => ({
         assert_eq!($bs.len() << $n, $ns.len());
         for (bs, np) in Iterator::zip($bs.chunks(1 << $n), $ns.iter_mut()) {
             *np = Self::read_u(bs) as _;
@@ -11,11 +11,11 @@ macro_rules! to_uns {
     })
 }
 
-macro_rules! from_uns {
-    ($n:expr, $ns:expr, $bs:expr) => ({
+macro_rules! from_ns {
+    ($n:expr, $ns:expr, $bs:expr, $f:expr) => ({
         assert_eq!($bs.len() << $n, $ns.len());
         for (np, bs) in Iterator::zip($ns.iter(), $bs.chunks_mut(1 << $n)) {
-            Self::write_u(bs, *np as _);
+            $f(bs, *np as _);
         }
     })
 }
@@ -30,29 +30,29 @@ pub trait Endian: private::Sealed {
     #[inline]
     fn write_i(bs: &mut [u8], n: i64) { Self::write_u(bs, n as _) }
     #[inline]
-    fn to_u16s(bs: &[u8], ns: &mut [u16]) { to_uns!(2, bs, ns) }
+    fn to_u16s(bs: &[u8], ns: &mut [u16]) { to_ns!(2, bs, ns, Self::read_u) }
     #[inline]
-    fn to_i16s(bs: &[u8], ns: &mut [i16]) { Self::to_u16s(bs, unsafe { xmut(ns) }) }
+    fn to_i16s(bs: &[u8], ns: &mut [i16]) { to_ns!(2, bs, ns, Self::write_i) }
     #[inline]
-    fn from_u16s(ns: &[u16], bs: &mut [u8]) { from_uns!(2, ns, bs) }
+    fn from_u16s(ns: &[u16], bs: &mut [u8]) { from_ns!(2, ns, bs, Self::write_u) }
     #[inline]
-    fn from_i16s(ns: &[i16], bs: &mut [u8]) { Self::from_u16s(unsafe { xmut(ns) }, bs) }
+    fn from_i16s(ns: &[i16], bs: &mut [u8]) { from_ns!(2, ns, bs, Self::write_i) }
     #[inline]
-    fn to_u32s(bs: &[u8], ns: &mut [u32]) { to_uns!(4, bs, ns) }
+    fn to_u32s(bs: &[u8], ns: &mut [u32]) { to_ns!(4, bs, ns, Self::read_u) }
     #[inline]
-    fn to_i32s(bs: &[u8], ns: &mut [i32]) { Self::to_u32s(bs, unsafe { xmut(ns) }) }
+    fn to_i32s(bs: &[u8], ns: &mut [i32]) { to_ns!(4, bs, ns, Self::read_i) }
     #[inline]
-    fn from_u32s(ns: &[u32], bs: &mut [u8]) { from_uns!(4, ns, bs) }
+    fn from_u32s(ns: &[u32], bs: &mut [u8]) { from_ns!(4, ns, bs, Self::write_u) }
     #[inline]
-    fn from_i32s(ns: &[i32], bs: &mut [u8]) { Self::from_u32s(unsafe { xmut(ns) }, bs) }
+    fn from_i32s(ns: &[i32], bs: &mut [u8]) { from_ns!(4, ns, bs, Self::write_i) }
     #[inline]
-    fn to_u64s(bs: &[u8], ns: &mut [u64]) { to_uns!(8, bs, ns) }
+    fn to_u64s(bs: &[u8], ns: &mut [u64]) { to_ns!(8, bs, ns, Self::read_u) }
     #[inline]
-    fn to_i64s(bs: &[u8], ns: &mut [i64]) { Self::to_u64s(bs, unsafe { xmut(ns) }) }
+    fn to_i64s(bs: &[u8], ns: &mut [i64]) { to_ns!(8, bs, ns, Self::read_i) }
     #[inline]
-    fn from_u64s(ns: &[u64], bs: &mut [u8]) { from_uns!(8, ns, bs) }
+    fn from_u64s(ns: &[u64], bs: &mut [u8]) { from_ns!(8, ns, bs, Self::write_u) }
     #[inline]
-    fn from_i64s(ns: &[i64], bs: &mut [u8]) { Self::from_u64s(unsafe { xmut(ns) }, bs) }
+    fn from_i64s(ns: &[i64], bs: &mut [u8]) { from_ns!(8, ns, bs, Self::write_i) }
 }
 
 mod private {
