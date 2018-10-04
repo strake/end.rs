@@ -125,6 +125,22 @@ impl<A: PartialEq, E: Endian> PartialEq for End<A, E> {
 }
 impl<A: Eq, E: Endian> Eq for End<A, E> {}
 
+macro_rules! impl_fmt {
+    ($c:path) => {
+        impl<A: Copy, E: Copy + Endian> $c for End<A, E> where A: From<End<A, E>> + $c {
+            #[inline]
+            fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                <A>::from(*self).fmt(fmt)
+            }
+        }
+    };
+
+    ($c:path, $($cs:path),*) => { impl_fmt!($c); $(impl_fmt!($cs);)* }
+}
+
+use core::fmt;
+impl_fmt!(fmt::Debug, fmt::Display, fmt::Octal, fmt::LowerHex, fmt::UpperHex);
+
 macro_rules! do_impls {
     ($t:ty) => {
         impl<E: Endian> From<$t> for End<$t, E> {
