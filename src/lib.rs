@@ -117,6 +117,7 @@ impl Endian for Lil {
 }
 
 #[derive(Clone, Copy)]
+#[repr(transparent)]
 pub struct End<A, E: Endian>(A, PhantomData<E>);
 
 impl<A: PartialEq, E: Endian> PartialEq for End<A, E> {
