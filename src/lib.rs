@@ -1,6 +1,6 @@
 #![no_std]
 
-use core::{cmp::Ordering, marker::PhantomData};
+use core::{cmp::Ordering, hash::{Hash, Hasher}, marker::PhantomData};
 
 macro_rules! to_ns {
     ($n:expr, $bs:expr, $ns:expr, $f:expr) => ({
@@ -116,7 +116,7 @@ impl Endian for Lil {
     }
 }
 
-#[derive(Clone, Copy, Hash)]
+#[derive(Clone, Copy)]
 pub struct End<A, E: Endian>(A, PhantomData<E>);
 
 impl<A: PartialEq, E: Endian> PartialEq for End<A, E> {
@@ -124,6 +124,10 @@ impl<A: PartialEq, E: Endian> PartialEq for End<A, E> {
     fn eq(&self, other: &Self) -> bool { self.0 == other.0 }
 }
 impl<A: Eq, E: Endian> Eq for End<A, E> {}
+impl<A: Hash, E: Endian> Hash for End<A, E> {
+    #[inline]
+    fn hash<H: Hasher>(&self, h: &mut H) { self.0.hash(h) }
+}
 
 macro_rules! impl_fmt {
     ($c:path) => {
