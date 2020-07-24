@@ -1,58 +1,64 @@
 #![no_std]
 
-use core::{cmp::Ordering, hash::{Hash, Hasher}, marker::PhantomData};
+use core::{cmp::Ordering, convert::From, hash::{Hash, Hasher}, marker::PhantomData, mem};
 
-macro_rules! to_ns {
-    ($n:expr, $bs:expr, $ns:expr, $f:expr) => ({
-        assert_eq!($bs.len() << $n, $ns.len());
-        for (bs, np) in Iterator::zip($bs.chunks(1 << $n), $ns.iter_mut()) {
-            *np = Self::read_u(bs) as _;
-        }
-    })
-}
-
-macro_rules! from_ns {
-    ($n:expr, $ns:expr, $bs:expr, $f:expr) => ({
-        assert_eq!($bs.len() << $n, $ns.len());
-        for (np, bs) in Iterator::zip($ns.iter(), $bs.chunks_mut(1 << $n)) {
-            $f(bs, *np as _);
-        }
-    })
-}
+use num_traits::{NumAssign, cast::AsPrimitive, int::PrimInt};
 
 pub trait Endian: private::Sealed {
     const is_big: bool = !Self::is_lil;
     const is_lil: bool = !Self::is_big;
-    fn read_u(&[u8]) -> u64;
+
+    fn read<N: 'static + PrimInt + NumAssign + ShlAssign<usize>>(bs: &[u8]) -> N where u8: AsPrimitive<N>;
+    fn write<N: PrimInt + NumAssign + ShrAssign<usize>>(bs: &mut [u8], n: N) where N: AsPrimitive<u8>;
+
     #[inline]
-    fn read_i(bs: &[u8]) -> i64 { Self::read_u(bs) as _ }
-    fn write_u(&mut [u8], n: u64);
+    fn from<N: PrimInt + NumAssign + ShrAssign<usize>>(ns: &[N], bs: &mut [u8]) where N: AsPrimitive<u8> {
+        assert_eq!(bs.len(), mem::size_of::<N>() * ns.len());
+        for (np, bs) in Iterator::zip(ns.iter(), bs.chunks_mut(mem::size_of::<N>())) {
+            Self::write(bs, *np);
+        }
+    }
+
     #[inline]
-    fn write_i(bs: &mut [u8], n: i64) { Self::write_u(bs, n as _) }
-    #[inline]
-    fn to_u16s(bs: &[u8], ns: &mut [u16]) { to_ns!(2, bs, ns, Self::read_u) }
-    #[inline]
-    fn to_i16s(bs: &[u8], ns: &mut [i16]) { to_ns!(2, bs, ns, Self::write_i) }
-    #[inline]
-    fn from_u16s(ns: &[u16], bs: &mut [u8]) { from_ns!(2, ns, bs, Self::write_u) }
-    #[inline]
-    fn from_i16s(ns: &[i16], bs: &mut [u8]) { from_ns!(2, ns, bs, Self::write_i) }
-    #[inline]
-    fn to_u32s(bs: &[u8], ns: &mut [u32]) { to_ns!(4, bs, ns, Self::read_u) }
-    #[inline]
-    fn to_i32s(bs: &[u8], ns: &mut [i32]) { to_ns!(4, bs, ns, Self::read_i) }
-    #[inline]
-    fn from_u32s(ns: &[u32], bs: &mut [u8]) { from_ns!(4, ns, bs, Self::write_u) }
-    #[inline]
-    fn from_i32s(ns: &[i32], bs: &mut [u8]) { from_ns!(4, ns, bs, Self::write_i) }
-    #[inline]
-    fn to_u64s(bs: &[u8], ns: &mut [u64]) { to_ns!(8, bs, ns, Self::read_u) }
-    #[inline]
-    fn to_i64s(bs: &[u8], ns: &mut [i64]) { to_ns!(8, bs, ns, Self::read_i) }
-    #[inline]
-    fn from_u64s(ns: &[u64], bs: &mut [u8]) { from_ns!(8, ns, bs, Self::write_u) }
-    #[inline]
-    fn from_i64s(ns: &[i64], bs: &mut [u8]) { from_ns!(8, ns, bs, Self::write_i) }
+    fn to<N: 'static + PrimInt + NumAssign + ShlAssign<usize>>(bs: &[u8], ns: &mut [N]) where u8: AsPrimitive<N> {
+        assert_eq!(bs.len(), mem::size_of::<N>() * ns.len());
+        for (bs, np) in Iterator::zip(bs.chunks(mem::size_of::<N>()), ns.iter_mut()) {
+            *np = Self::read(bs);
+        }
+    }
+
+    #[inline] #[deprecated]
+    fn read_u(bs: &[u8]) -> u64 { Self::read(bs) }
+    #[inline] #[deprecated]
+    fn read_i(bs: &[u8]) -> u64 { Self::read(bs) }
+    #[inline] #[deprecated]
+    fn write_u(bs: &mut [u8], n: u64) { Self::write(bs, n) }
+    #[inline] #[deprecated]
+    fn write_i(bs: &mut [u8], n: i64) { Self::write(bs, n) }
+    #[inline] #[deprecated]
+    fn to_u16s(bs: &[u8], ns: &mut [u16]) { Self::to(bs, ns) }
+    #[inline] #[deprecated]
+    fn to_i16s(bs: &[u8], ns: &mut [i16]) { Self::to(bs, ns) }
+    #[inline] #[deprecated]
+    fn from_u16s(ns: &[u16], bs: &mut [u8]) { Self::from(ns, bs) }
+    #[inline] #[deprecated]
+    fn from_i16s(ns: &[i16], bs: &mut [u8]) { Self::from(ns, bs) }
+    #[inline] #[deprecated]
+    fn to_u32s(bs: &[u8], ns: &mut [u32]) { Self::to(bs, ns) }
+    #[inline] #[deprecated]
+    fn to_i32s(bs: &[u8], ns: &mut [i32]) { Self::to(bs, ns) }
+    #[inline] #[deprecated]
+    fn from_u32s(ns: &[u32], bs: &mut [u8]) { Self::from(ns, bs) }
+    #[inline] #[deprecated]
+    fn from_i32s(ns: &[i32], bs: &mut [u8]) { Self::from(ns, bs) }
+    #[inline] #[deprecated]
+    fn to_u64s(bs: &[u8], ns: &mut [u64]) { Self::to(bs, ns) }
+    #[inline] #[deprecated]
+    fn to_i64s(bs: &[u8], ns: &mut [i64]) { Self::to(bs, ns) }
+    #[inline] #[deprecated]
+    fn from_u64s(ns: &[u64], bs: &mut [u8]) { Self::from(ns, bs) }
+    #[inline] #[deprecated]
+    fn from_i64s(ns: &[i64], bs: &mut [u8]) { Self::from(ns, bs) }
 }
 
 mod private {
@@ -72,21 +78,21 @@ impl Endian for Big {
     const is_big: bool = true;
 
     #[inline]
-    fn read_u(bs: &[u8]) -> u64 {
-        assert!(8 >= bs.len());
-        let mut n = 0;
+    fn read<N: 'static + PrimInt + NumAssign + ShlAssign<usize>>(bs: &[u8]) -> N where u8: AsPrimitive<N> {
+        assert!(mem::size_of::<N>() >= bs.len());
+        let mut n = 0.as_();
         for &b in bs {
             n <<= 8;
-            n += b as u64;
+            n += b.as_();
         }
         n
     }
 
     #[inline]
-    fn write_u(bs: &mut [u8], mut n: u64) {
-        assert!(8 >= bs.len());
+    fn write<N: PrimInt + NumAssign + ShrAssign<usize>>(bs: &mut [u8], mut n: N) where N: AsPrimitive<u8> {
+        assert!(mem::size_of::<N>() >= bs.len());
         for bp in bs.iter_mut().rev() {
-            *bp = n as _;
+            *bp = n.as_();
             n >>= 8;
         }
     }
@@ -96,21 +102,21 @@ impl Endian for Lil {
     const is_lil: bool = true;
 
     #[inline]
-    fn read_u(bs: &[u8]) -> u64 {
-        assert!(8 >= bs.len());
-        let mut n = 0;
+    fn read<N: 'static + PrimInt + NumAssign + ShlAssign<usize>>(bs: &[u8]) -> N where u8: AsPrimitive<N> {
+        assert!(mem::size_of::<N>() >= bs.len());
+        let mut n = 0.as_();
         for &b in bs.iter().rev() {
             n <<= 8;
-            n += b as u64;
+            n += b.as_();
         }
         n
     }
 
     #[inline]
-    fn write_u(bs: &mut [u8], mut n: u64) {
-        assert!(8 >= bs.len());
+    fn write<N: PrimInt + NumAssign + ShrAssign<usize>>(bs: &mut [u8], mut n: N) where N: AsPrimitive<u8> {
+        assert!(mem::size_of::<N>() >= bs.len());
         for bp in bs {
-            *bp = n as _;
+            *bp = n.as_();
             n >>= 8;
         }
     }
